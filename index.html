@@ -160,7 +160,7 @@ main { padding-top: 14px; padding-bottom: 8px; display: grid; gap: 10px; }
 .tf:focus-within { outline: 2px solid var(--accent); border-color: transparent; }
 .tf .field { flex: 1; min-width: 0; min-height: 46px; border: 0; background: transparent; outline: 0; padding: 0 0 0 12px; }
 .ampm {
-  flex: none; width: 44px; height: 36px; margin-right: 5px;
+  flex: none; width: 44px; height: 44px; margin-right: 1px;
   border: 0; border-radius: 8px;
   background: var(--surface); color: var(--ink);
   box-shadow: 0 0 0 1px var(--line);
@@ -428,7 +428,7 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     if (!t.dataset || !t.dataset.f) return;
     var sec = t.closest('.day');
     if (t.dataset.f !== 'brk') {
-      if (ev.type === 'change') { commitTime(sec, t.dataset.f); return; }
+      if (ev.type === 'focusout') { commitTime(sec, t.dataset.f); return; }
       t.value = fmtTyping(t.value, /^delete/.test(ev.inputType));
       // the iOS numeric keypad has no Done key, so save as soon as the time is complete
       var done = /^\d{1,2}:\d{2}$/.test(t.value) && parseTime(t.value, t.parentNode.querySelector('.ampm').textContent);
@@ -440,7 +440,8 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     setField(sec, 'brk', v === '0' ? '' : v);
   }
   daysEl.addEventListener('input', onInput);
-  daysEl.addEventListener('change', onInput);
+  // not 'change': setting t.value while typing resets the browser's change tracking
+  daysEl.addEventListener('focusout', onInput);
   daysEl.addEventListener('keydown', function (ev) {
     if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.f) ev.target.blur();
   });

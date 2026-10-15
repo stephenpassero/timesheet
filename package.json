@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "@playwright/test": "^1.49.1"
+  },
+  "name": "timesheet",
+  "private": true,
+  "scripts": {
+    "test": "playwright test"
+  }
+}
