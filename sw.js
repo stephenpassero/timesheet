@@ -1,5 +1,5 @@
 var CACHE = 'timesheet-v1';
-var ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+var ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'favicon.ico', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS); }));
@@ -15,11 +15,13 @@ self.addEventListener('activate', function (e) {
 
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request).then(function (res) {
-      var copy = res.clone();
-      caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
-      return res;
-    }).catch(function () { return caches.match(e.request); })
-  );
+  var network = fetch(e.request).then(function (res) {
+    if (!res.ok) return res;
+    var copy = res.clone();
+    return caches.open(CACHE)
+      .then(function (c) { return c.put(e.request, copy); })
+      .then(function () { return res; });
+  });
+  e.waitUntil(network.catch(function () {}));
+  e.respondWith(caches.match(e.request).then(function (hit) { return hit || network; }));
 });
