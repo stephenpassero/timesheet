@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0B6E5B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Timesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Timesheet</title>
+<style>
+:root {
+  --bg: #EDF0F3;
+  --surface: #FFFFFF;
+  --field: #F3F5F7;
+  --ink: #101820;
+  --muted: #66727F;
+  --line: #D9DFE5;
+  --accent: #0B6E5B;
+  --accent-ink: #FFFFFF;
+  --warn: #B54708;
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1116;
+    --surface: #151C24;
+    --field: #1D2630;
+    --ink: #E9EEF2;
+    --muted: #8B98A5;
+    --line: #26313C;
+    --accent: #3DD6AE;
+    --accent-ink: #05241C;
+    --warn: #F0A15C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1116;
+  --surface: #151C24;
+  --field: #1D2630;
+  --ink: #E9EEF2;
+  --muted: #8B98A5;
+  --line: #26313C;
+  --accent: #3DD6AE;
+  --accent-ink: #05241C;
+  --warn: #F0A15C;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); -webkit-text-size-adjust: 100%; background: var(--bg); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--bg);
+  z-index: 10;
+}
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap {
+  max-width: 560px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Header with weekly total */
+.top {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 20;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.top .wrap { display: flex; align-items: center; gap: 4px; padding-top: 8px; padding-bottom: 10px; }
+.arrow {
+  flex: none;
+  width: 48px; height: 48px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+}
+.arrow:active { background: var(--field); }
+.arrow svg { width: 22px; height: 22px; }
+.mid { flex: 1; min-width: 0; text-align: center; }
+.range { font-size: 14px; color: var(--muted); display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 22px; }
+.today-btn {
+  border: 0; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink);
+  font-size: 12px; font-weight: 700;
+  padding: 2px 10px;
+}
+.val { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.sub { font-size: 14px; color: var(--muted); }
+
+/* Days */
+main { padding-top: 14px; padding-bottom: 8px; display: grid; gap: 10px; }
+.day {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  scroll-margin-top: calc(var(--hdr, 100px) + env(safe-area-inset-top, 0px) + 10px);
+}
+.day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.dh { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.dn b { display: block; font-size: 18px; font-weight: 650; }
+.dn span { font-size: 14px; color: var(--muted); }
+.dn .tag { color: var(--accent); font-weight: 650; margin-left: 6px; }
+.dt { text-align: right; }
+.dt .h { display: block; font-size: 20px; font-weight: 700; }
+.dt .h.empty { color: var(--muted); font-weight: 500; }
+.dt .d { font-size: 13px; color: var(--muted); }
+
+.fields { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 10px; margin-top: 12px; }
+.fields label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+.fields label > :last-child { margin-top: 5px; }
+.tf, .bf { position: relative; }
+.field {
+  -webkit-appearance: none; appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 17px;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: left;
+}
+.field::-webkit-date-and-time-value { text-align: left; }
+.field:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.ph {
+  position: absolute; left: 13px; top: 0; bottom: 0;
+  display: none; align-items: center;
+  color: var(--muted); font-size: 17px;
+  pointer-events: none;
+}
+.tf.empty .ph { display: flex; }
+.tf.empty .field { color: transparent; }
+.tf.empty .field:focus { color: var(--ink); }
+.tf.empty:focus-within .ph { display: none; }
+.bf .field { padding-right: 42px; -moz-appearance: textfield; }
+.bf .field::-webkit-outer-spin-button, .bf .field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bf i { position: absolute; right: 12px; top: 0; bottom: 0; display: flex; align-items: center; font-style: normal; font-size: 14px; color: var(--muted); pointer-events: none; }
+
+.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.note { flex: 1 1 100%; margin: 0; font-size: 14px; color: var(--muted); }
+.note.warn { color: var(--warn); }
+.btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0; border-radius: 10px;
+  font-weight: 650; font-size: 16px;
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { background: transparent; color: var(--muted); padding: 0 10px; }
+.btn:active { opacity: .75; }
+
+/* Footer settings */
+footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.row > span { font-size: 15px; color: var(--muted); }
+.seg { display: inline-flex; background: var(--field); border: 1px solid var(--line); border-radius: 10px; padding: 2px; }
+.seg button { min-height: 40px; min-width: 64px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 600; font-size: 15px; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.danger { background: transparent; border: 1px solid var(--line); border-radius: 10px; min-height: 46px; color: var(--muted); font-weight: 600; font-size: 15px; }
+.danger.armed { border-color: var(--warn); color: var(--warn); }
+</style>
+</head>
+<body>
+
+<header class="top" id="top">
+  <div class="wrap">
+    <button class="arrow" id="prev" aria-label="Previous week">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <div class="mid">
+      <div class="range"><span id="range"></span><button class="today-btn" id="todayBtn" hidden>This week</button></div>
+      <div class="val" id="wkTotal">0h 00m</div>
+      <div class="sub" id="wkDec">0.00 hours total</div>
+    </div>
+    <button class="arrow" id="next" aria-label="Next week">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="wrap">
+  <main id="days"></main>
+  <footer>
+    <div class="row">
+      <span>Week starts on</span>
+      <div class="seg" role="group" aria-label="Week starts on">
+        <button id="wsMon" aria-pressed="true">Mon</button>
+        <button id="wsSun" aria-pressed="false">Sun</button>
+      </div>
+    </div>
+    <button class="danger" id="clearWeek">Clear this week</button>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var STORE_KEY = 'timesheet:v1';
+  var state = { entries: {}, weekStart: 1 };
+  var anchor = new Date();
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var p = JSON.parse(raw);
+      if (p && typeof p === 'object') {
+        state.entries = p.entries && typeof p.entries === 'object' ? p.entries : {};
+        state.weekStart = p.weekStart === 0 ? 0 : 1;
+      }
+    } catch (e) {}
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var keyOf = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  var todayKey = function () { return keyOf(new Date()); };
+  var toMin = function (t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; };
+  var fmtHM = function (m) { return Math.floor(m / 60) + 'h ' + pad(m % 60) + 'm'; };
+  var fmtDec = function (m) { return (m / 60).toFixed(2); };
+
+  function calc(e) {
+    if (!e || !e.in || !e.out) return null;
+    var span = toMin(e.out) - toMin(e.in);
+    var overnight = false;
+    if (span < 0) { span += 1440; overnight = true; }
+    var brk = Math.max(0, parseInt(e.brk, 10) || 0);
+    var net = span - brk, over = false;
+    if (net < 0) { net = 0; over = true; }
+    return { net: net, overnight: overnight, over: over };
+  }
+
+  function startOfWeek(d) {
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() - ((x.getDay() - state.weekStart + 7) % 7));
+    return x;
+  }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+
+  var daysEl = document.getElementById('days');
+  var topEl = document.getElementById('top');
+
+  function rangeLabel(s) {
+    var e = addDays(s, 6);
+    var mo = { month: 'short' }, md = { month: 'short', day: 'numeric' };
+    var thisYear = new Date().getFullYear();
+    if (s.getFullYear() !== e.getFullYear()) {
+      return s.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' – ' +
+             e.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    var yr = s.getFullYear() !== thisYear ? ', ' + s.getFullYear() : '';
+    if (s.getMonth() === e.getMonth()) {
+      return s.toLocaleDateString(undefined, md) + ' – ' + e.getDate() + yr;
+    }
+    return s.toLocaleDateString(undefined, md) + ' – ' + e.toLocaleDateString(undefined, md) + yr;
+  }
+
+  function render(scrollToToday) {
+    var start = startOfWeek(anchor);
+    var tk = todayKey();
+    var html = '';
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(start, i), k = keyOf(d);
+      html +=
+        '<section class="day' + (k === tk ? ' today' : '') + '" data-key="' + k + '">' +
+          '<div class="dh">' +
+            '<div class="dn"><b>' + d.toLocaleDateString(undefined, { weekday: 'long' }) + '</b>' +
+              '<span>' + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + '</span>' +
+              (k === tk ? '<span class="tag">Today</span>' : '') + '</div>' +
+            '<div class="dt"><b class="h empty">—</b><span class="d"></span></div>' +
+          '</div>' +
+          '<div class="fields">' +
+            '<label>In<div class="tf empty"><input class="field" type="time" data-f="in"><span class="ph">--:--</span></div></label>' +
+            '<label>Out<div class="tf empty"><input class="field" type="time" data-f="out"><span class="ph">--:--</span></div></label>' +
+            '<label>Break<div class="bf"><input class="field" type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="999" step="5" placeholder="0" data-f="brk"><i>min</i></div></label>' +
+          '</div>' +
+          '<div class="foot" hidden>' +
+            '<p class="note" hidden></p>' +
+            '<button class="btn primary copy" hidden></button>' +
+            '<button class="btn ghost clr" hidden>Clear day</button>' +
+          '</div>' +
+        '</section>';
+    }
+    daysEl.innerHTML = html;
+    daysEl.querySelectorAll('.day').forEach(function (sec) {
+      var e = state.entries[sec.dataset.key] || {};
+      sec.querySelectorAll('input[data-f]').forEach(function (inp) {
+        inp.value = e[inp.dataset.f] || '';
+      });
+      updateDay(sec);
+    });
+    document.getElementById('range').textContent = rangeLabel(start);
+    document.getElementById('todayBtn').hidden = keyOf(start) === keyOf(startOfWeek(new Date()));
+    updateTotals();
+    topEl.style.setProperty('--hdr', topEl.offsetHeight + 'px');
+    document.documentElement.style.setProperty('--hdr', topEl.offsetHeight + 'px');
+    if (scrollToToday) {
+      var t = daysEl.querySelector('.day.today');
+      if (t) setTimeout(function () { t.scrollIntoView({ block: 'start' }); }, 50);
+    }
+  }
+
+  function updateDay(sec) {
+    var key = sec.dataset.key, e = state.entries[key] || {}, c = calc(e);
+    var h = sec.querySelector('.dt .h'), d = sec.querySelector('.dt .d');
+    if (c) { h.textContent = fmtHM(c.net); h.classList.remove('empty'); d.textContent = fmtDec(c.net) + ' h'; }
+    else { h.textContent = '—'; h.classList.add('empty'); d.textContent = ''; }
+
+    sec.querySelectorAll('.tf').forEach(function (w) {
+      w.classList.toggle('empty', !w.querySelector('input').value);
+    });
+
+    var note = '', warn = false;
+    if (e.in && !e.out) { note = 'No clock-out time.'; warn = true; }
+    else if (!e.in && e.out) { note = 'No clock-in time.'; warn = true; }
+    else if (c && c.over) { note = 'Break is longer than the shift.'; warn = true; }
+    else if (c && c.overnight) { note = 'Overnight: clock-out is the next day.'; }
+
+    var noteEl = sec.querySelector('.note');
+    noteEl.hidden = !note; noteEl.textContent = note; noteEl.classList.toggle('warn', warn);
+
+    var copyBtn = sec.querySelector('.copy');
+    var pp = key.split('-'), pd = new Date(+pp[0], +pp[1] - 1, +pp[2] - 1);
+    var pe0 = state.entries[keyOf(pd)];
+    var showCopy = !(e.in || e.out || e.brk) && !!(pe0 && (pe0.in || pe0.out));
+    copyBtn.hidden = !showCopy;
+    if (showCopy) copyBtn.textContent = 'Same as ' + pd.toLocaleDateString(undefined, { weekday: 'short' });
+
+    var clr = sec.querySelector('.clr');
+    clr.hidden = !(e.in || e.out || e.brk);
+
+    sec.querySelector('.foot').hidden = noteEl.hidden && copyBtn.hidden && clr.hidden;
+  }
+
+  function updateTotals() {
+    var start = startOfWeek(anchor), total = 0;
+    for (var i = 0; i < 7; i++) {
+      var c = calc(state.entries[keyOf(addDays(start, i))]);
+      if (c) total += c.net;
+    }
+    document.getElementById('wkTotal').textContent = fmtHM(total);
+    document.getElementById('wkDec').textContent = fmtDec(total) + ' hours total';
+  }
+
+  function setField(sec, f, v) {
+    var key = sec.dataset.key;
+    var e = state.entries[key] || {};
+    if (v) e[f] = v; else delete e[f];
+    if (!e.in && !e.out && !e.brk) delete state.entries[key]; else state.entries[key] = e;
+    save();
+    updateDay(sec);
+    updateTotals();
+  }
+
+  function onInput(ev) {
+    var t = ev.target;
+    if (!t.dataset || !t.dataset.f) return;
+    var v = t.value;
+    if (t.dataset.f === 'brk') {
+      v = String(v).replace(/[^0-9]/g, '');
+      if (v !== t.value) t.value = v;
+      if (v === '0') v = '';
+    }
+    setField(t.closest('.day'), t.dataset.f, v);
+  }
+  daysEl.addEventListener('input', onInput);
+  daysEl.addEventListener('change', onInput);
+
+  daysEl.addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    var sec = b.closest('.day');
+    if (b.classList.contains('copy')) {
+      var p = sec.dataset.key.split('-');
+      var prev = state.entries[keyOf(new Date(+p[0], +p[1] - 1, +p[2] - 1))];
+      if (prev) {
+        state.entries[sec.dataset.key] = Object.assign({}, prev);
+        save();
+        sec.querySelectorAll('input[data-f]').forEach(function (i) { i.value = prev[i.dataset.f] || ''; });
+        updateDay(sec);
+        updateTotals();
+      }
+    } else if (b.classList.contains('clr')) {
+      delete state.entries[sec.dataset.key];
+      save();
+      sec.querySelectorAll('input[data-f]').forEach(function (i) { i.value = ''; });
+      updateDay(sec);
+      updateTotals();
+    }
+  });
+
+  document.getElementById('prev').addEventListener('click', function () { anchor = addDays(anchor, -7); render(false); window.scrollTo(0, 0); });
+  document.getElementById('next').addEventListener('click', function () { anchor = addDays(anchor, 7); render(false); window.scrollTo(0, 0); });
+  document.getElementById('todayBtn').addEventListener('click', function () { anchor = new Date(); render(false); window.scrollTo(0, 0); });
+
+  var wsMon = document.getElementById('wsMon'), wsSun = document.getElementById('wsSun');
+  function syncSeg() {
+    wsMon.setAttribute('aria-pressed', state.weekStart === 1);
+    wsSun.setAttribute('aria-pressed', state.weekStart === 0);
+  }
+  wsMon.addEventListener('click', function () { state.weekStart = 1; save(); syncSeg(); render(false); });
+  wsSun.addEventListener('click', function () { state.weekStart = 0; save(); syncSeg(); render(false); });
+
+  var clearBtn = document.getElementById('clearWeek'), armTimer = null;
+  clearBtn.addEventListener('click', function () {
+    if (!clearBtn.classList.contains('armed')) {
+      clearBtn.classList.add('armed');
+      clearBtn.textContent = 'Tap again to clear this week';
+      armTimer = setTimeout(disarm, 4000);
+      return;
+    }
+    var start = startOfWeek(anchor);
+    for (var i = 0; i < 7; i++) delete state.entries[keyOf(addDays(start, i))];
+    save();
+    disarm();
+    render(false);
+  });
+  function disarm() {
+    clearTimeout(armTimer);
+    clearBtn.classList.remove('armed');
+    clearBtn.textContent = 'Clear this week';
+  }
+
+  load();
+  syncSeg();
+  render(false);
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+})();
+</script>
+</body>
+</html>
