@@ -136,10 +136,9 @@ main { padding-top: 14px; padding-bottom: 8px; display: grid; gap: 10px; }
 .dt .h.empty { color: var(--muted); font-weight: 500; }
 .dt .d { font-size: 13px; color: var(--muted); }
 
-.fields { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 10px; margin-top: 12px; }
+.fields { display: grid; grid-template-columns: 1.15fr 1.15fr 0.7fr; gap: 10px; margin-top: 12px; }
 .fields label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
 .fields label > :last-child { margin-top: 5px; }
-.bf { position: relative; }
 .field {
   -webkit-appearance: none; appearance: none;
   display: block;
@@ -157,7 +156,16 @@ main { padding-top: 14px; padding-bottom: 8px; display: grid; gap: 10px; }
 }
 .field::placeholder { color: var(--muted); opacity: 1; }
 .field:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
-.bf i { position: absolute; right: 12px; top: 0; bottom: 0; display: flex; align-items: center; font-style: normal; font-size: 14px; color: var(--muted); pointer-events: none; }
+.tf { display: flex; align-items: center; min-height: 48px; background: var(--field); border: 1px solid var(--line); border-radius: 10px; }
+.tf:focus-within { outline: 2px solid var(--accent); border-color: transparent; }
+.tf .field { flex: 1; min-width: 0; min-height: 46px; border: 0; background: transparent; outline: 0; padding: 0 0 0 12px; }
+.ampm {
+  flex: none; width: 44px; height: 36px; margin-right: 5px;
+  border: 0; border-radius: 8px;
+  background: var(--surface); color: var(--ink);
+  box-shadow: 0 0 0 1px var(--line);
+  font-size: 13px; font-weight: 700;
+}
 
 .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .note { flex: 1 1 100%; margin: 0; font-size: 14px; color: var(--muted); }
@@ -254,17 +262,45 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     return { net: net, overnight: overnight, over: over };
   }
 
-  // Accepts "930", "9:30", "0930", "17", "5p", "9:30 am" -> "HH:MM"; returns null when invalid
-  function parseTime(text) {
-    var m = /^(\d{1,2})(?::?(\d{2}))?\s*([ap])?m?$/i.exec(text.trim());
+  // "9:30" + "PM" -> "21:30"; returns null when invalid
+  function parseTime(text, period) {
+    var m = /^(\d{1,2}):?(\d{2})?$/.exec(text.trim());
     if (!m) return null;
-    var h = +m[1], min = m[2] ? +m[2] : 0, ap = m[3] && m[3].toLowerCase();
-    if (ap) {
-      if (h < 1 || h > 12) return null;
-      h = h % 12 + (ap === 'p' ? 12 : 0);
-    }
-    if (h > 23 || min > 59) return null;
-    return pad(h) + ':' + pad(min);
+    var h = +m[1], min = m[2] ? +m[2] : 0;
+    if (h < 1 || h > 12 || min > 59) return null;
+    return pad(h % 12 + (period === 'PM' ? 12 : 0)) + ':' + pad(min);
+  }
+
+  // Inserts the colon as digits are typed: "9" -> "9:", "930" -> "9:30", "1230" -> "12:30"
+  function fmtTyping(raw, deleting) {
+    var d = raw.replace(/\D/g, '').slice(0, 4);
+    if (d.length === 1 && d < '2') return d;
+    var hl = d[0] === '0' || (d[0] === '1' && d[1] <= '2') ? 2 : 1;
+    var m = d.slice(hl, hl + 2);
+    if (m[0] > '5') m = '';
+    return deleting && !m ? d.slice(0, hl) : d.slice(0, hl) + ':' + m;
+  }
+
+  function showTime(sec, f, hhmm) {
+    var inp = sec.querySelector('input[data-f="' + f + '"]'), h = hhmm ? +hhmm.slice(0, 2) : 12;
+    inp.value = hhmm ? (h % 12 || 12) + ':' + hhmm.slice(3) : '';
+    // only write on change: replacing the button's text between touchstart and touchend makes WebKit drop the click
+    var btn = inp.parentNode.querySelector('.ampm'), period = hhmm && h < 12 ? 'AM' : 'PM';
+    if (btn.textContent !== period) btn.textContent = period;
+  }
+
+  function fillFields(sec, e) {
+    showTime(sec, 'in', e.in || '');
+    showTime(sec, 'out', e.out || '');
+    sec.querySelector('input[data-f="brk"]').value = e.brk || '';
+  }
+
+  function commitTime(sec, f) {
+    var inp = sec.querySelector('input[data-f="' + f + '"]');
+    var v = inp.value.trim() ? parseTime(inp.value, inp.parentNode.querySelector('.ampm').textContent) : '';
+    if (v === null) { showTime(sec, f, (state.entries[sec.dataset.key] || {})[f] || ''); return; }
+    showTime(sec, f, v);
+    setField(sec, f, v);
   }
 
   function startOfWeek(d) {
@@ -307,9 +343,9 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
             '<div class="dt"><b class="h empty">—</b><span class="d"></span></div>' +
           '</div>' +
           '<div class="fields">' +
-            '<label>In<input class="field" type="text" inputmode="numeric" autocomplete="off" placeholder="--:--" data-f="in"></label>' +
-            '<label>Out<input class="field" type="text" inputmode="numeric" autocomplete="off" placeholder="--:--" data-f="out"></label>' +
-            '<label>Break<div class="bf"><input class="field" type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="999" step="5" placeholder="0" data-f="brk"><i>min</i></div></label>' +
+            '<label>In<div class="tf"><input class="field" type="text" inputmode="numeric" autocomplete="off" placeholder="--:--" data-f="in"><button type="button" class="ampm" aria-label="Toggle AM or PM">PM</button></div></label>' +
+            '<label>Out<div class="tf"><input class="field" type="text" inputmode="numeric" autocomplete="off" placeholder="--:--" data-f="out"><button type="button" class="ampm" aria-label="Toggle AM or PM">PM</button></div></label>' +
+            '<label>Break<input class="field" type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="999" step="5" placeholder="min" data-f="brk"></label>' +
           '</div>' +
           '<div class="foot" hidden>' +
             '<p class="note" hidden></p>' +
@@ -321,9 +357,7 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     daysEl.innerHTML = html;
     daysEl.querySelectorAll('.day').forEach(function (sec) {
       var e = state.entries[sec.dataset.key] || {};
-      sec.querySelectorAll('input[data-f]').forEach(function (inp) {
-        inp.value = e[inp.dataset.f] || '';
-      });
+      fillFields(sec, e);
       updateDay(sec);
     });
     document.getElementById('range').textContent = rangeLabel(start);
@@ -392,23 +426,18 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
   function onInput(ev) {
     var t = ev.target;
     if (!t.dataset || !t.dataset.f) return;
-    var v = t.value;
     var sec = t.closest('.day');
     if (t.dataset.f !== 'brk') {
-      if (ev.type !== 'change') return;
-      if (v.trim()) {
-        var parsed = parseTime(v);
-        if (!parsed) { t.value = (state.entries[sec.dataset.key] || {})[t.dataset.f] || ''; return; }
-        v = t.value = parsed;
-      } else {
-        v = '';
-      }
-    } else {
-      v = String(v).replace(/[^0-9]/g, '');
-      if (v !== t.value) t.value = v;
-      if (v === '0') v = '';
+      if (ev.type === 'change') { commitTime(sec, t.dataset.f); return; }
+      t.value = fmtTyping(t.value, /^delete/.test(ev.inputType));
+      // the iOS numeric keypad has no Done key, so save as soon as the time is complete
+      var done = /^\d{1,2}:\d{2}$/.test(t.value) && parseTime(t.value, t.parentNode.querySelector('.ampm').textContent);
+      if (done) setField(sec, t.dataset.f, done);
+      return;
     }
-    setField(sec, t.dataset.f, v);
+    var v = String(t.value).replace(/[^0-9]/g, '');
+    if (v !== t.value) t.value = v;
+    setField(sec, 'brk', v === '0' ? '' : v);
   }
   daysEl.addEventListener('input', onInput);
   daysEl.addEventListener('change', onInput);
@@ -426,14 +455,18 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
       if (prev) {
         state.entries[sec.dataset.key] = Object.assign({}, prev);
         save();
-        sec.querySelectorAll('input[data-f]').forEach(function (i) { i.value = prev[i.dataset.f] || ''; });
+        fillFields(sec, prev);
         updateDay(sec);
         updateTotals();
       }
+    } else if (b.classList.contains('ampm')) {
+      b.textContent = b.textContent === 'AM' ? 'PM' : 'AM';
+      var inp = b.parentNode.querySelector('input');
+      if (inp.value.trim()) commitTime(sec, inp.dataset.f);
     } else if (b.classList.contains('clr')) {
       delete state.entries[sec.dataset.key];
       save();
-      sec.querySelectorAll('input[data-f]').forEach(function (i) { i.value = ''; });
+      fillFields(sec, {});
       updateDay(sec);
       updateTotals();
     }
