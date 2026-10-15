@@ -139,7 +139,7 @@ main { padding-top: 14px; padding-bottom: 8px; display: grid; gap: 10px; }
 .fields { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 10px; margin-top: 12px; }
 .fields label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
 .fields label > :last-child { margin-top: 5px; }
-.tf, .bf { position: relative; }
+.bf { position: relative; }
 .field {
   -webkit-appearance: none; appearance: none;
   display: block;
@@ -153,22 +153,10 @@ main { padding-top: 14px; padding-bottom: 8px; display: grid; gap: 10px; }
   background: var(--field);
   border: 1px solid var(--line);
   border-radius: 10px;
-  text-align: left;
+  text-align: center;
 }
-.field::-webkit-date-and-time-value { text-align: left; }
+.field::placeholder { color: var(--muted); opacity: 1; }
 .field:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
-.ph {
-  position: absolute; left: 13px; top: 0; bottom: 0;
-  display: none; align-items: center;
-  color: var(--muted); font-size: 17px;
-  pointer-events: none;
-}
-.tf.empty .ph { display: flex; }
-.tf.empty .field { color: transparent; }
-.tf.empty .field:focus { color: var(--ink); }
-.tf.empty:focus-within .ph { display: none; }
-.bf .field { padding-right: 42px; -moz-appearance: textfield; }
-.bf .field::-webkit-outer-spin-button, .bf .field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .bf i { position: absolute; right: 12px; top: 0; bottom: 0; display: flex; align-items: center; font-style: normal; font-size: 14px; color: var(--muted); pointer-events: none; }
 
 .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
@@ -203,7 +191,7 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
     <div class="mid">
-      <div class="range"><span id="range"></span><button class="today-btn" id="todayBtn" hidden>This week</button></div>
+      <div class="range"><span id="range"></span><button class="today-btn" id="todayBtn" aria-label="Go to this week" hidden></button></div>
       <div class="val" id="wkTotal">0h 00m</div>
       <div class="sub" id="wkDec">0.00 hours total</div>
     </div>
@@ -266,6 +254,19 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     return { net: net, overnight: overnight, over: over };
   }
 
+  // Accepts "930", "9:30", "0930", "17", "5p", "9:30 am" -> "HH:MM"; returns null when invalid
+  function parseTime(text) {
+    var m = /^(\d{1,2})(?::?(\d{2}))?\s*([ap])?m?$/i.exec(text.trim());
+    if (!m) return null;
+    var h = +m[1], min = m[2] ? +m[2] : 0, ap = m[3] && m[3].toLowerCase();
+    if (ap) {
+      if (h < 1 || h > 12) return null;
+      h = h % 12 + (ap === 'p' ? 12 : 0);
+    }
+    if (h > 23 || min > 59) return null;
+    return pad(h) + ':' + pad(min);
+  }
+
   function startOfWeek(d) {
     var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     x.setDate(x.getDate() - ((x.getDay() - state.weekStart + 7) % 7));
@@ -306,8 +307,8 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
             '<div class="dt"><b class="h empty">—</b><span class="d"></span></div>' +
           '</div>' +
           '<div class="fields">' +
-            '<label>In<div class="tf empty"><input class="field" type="time" data-f="in"><span class="ph">--:--</span></div></label>' +
-            '<label>Out<div class="tf empty"><input class="field" type="time" data-f="out"><span class="ph">--:--</span></div></label>' +
+            '<label>In<input class="field" type="text" inputmode="numeric" autocomplete="off" placeholder="--:--" data-f="in"></label>' +
+            '<label>Out<input class="field" type="text" inputmode="numeric" autocomplete="off" placeholder="--:--" data-f="out"></label>' +
             '<label>Break<div class="bf"><input class="field" type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="999" step="5" placeholder="0" data-f="brk"><i>min</i></div></label>' +
           '</div>' +
           '<div class="foot" hidden>' +
@@ -326,7 +327,11 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
       updateDay(sec);
     });
     document.getElementById('range').textContent = rangeLabel(start);
-    document.getElementById('todayBtn').hidden = keyOf(start) === keyOf(startOfWeek(new Date()));
+    var weeks = Math.round((start - startOfWeek(new Date())) / 604800000);
+    var todayBtn = document.getElementById('todayBtn');
+    todayBtn.hidden = weeks === 0;
+    todayBtn.textContent = weeks === 1 ? 'Next week' : weeks === -1 ? 'Last week' :
+                           weeks > 0 ? 'In ' + weeks + ' weeks' : -weeks + ' weeks ago';
     updateTotals();
     topEl.style.setProperty('--hdr', topEl.offsetHeight + 'px');
     document.documentElement.style.setProperty('--hdr', topEl.offsetHeight + 'px');
@@ -341,10 +346,6 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     var h = sec.querySelector('.dt .h'), d = sec.querySelector('.dt .d');
     if (c) { h.textContent = fmtHM(c.net); h.classList.remove('empty'); d.textContent = fmtDec(c.net) + ' h'; }
     else { h.textContent = '—'; h.classList.add('empty'); d.textContent = ''; }
-
-    sec.querySelectorAll('.tf').forEach(function (w) {
-      w.classList.toggle('empty', !w.querySelector('input').value);
-    });
 
     var note = '', warn = false;
     if (e.in && !e.out) { note = 'No clock-out time.'; warn = true; }
@@ -392,15 +393,28 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     var t = ev.target;
     if (!t.dataset || !t.dataset.f) return;
     var v = t.value;
-    if (t.dataset.f === 'brk') {
+    var sec = t.closest('.day');
+    if (t.dataset.f !== 'brk') {
+      if (ev.type !== 'change') return;
+      if (v.trim()) {
+        var parsed = parseTime(v);
+        if (!parsed) { t.value = (state.entries[sec.dataset.key] || {})[t.dataset.f] || ''; return; }
+        v = t.value = parsed;
+      } else {
+        v = '';
+      }
+    } else {
       v = String(v).replace(/[^0-9]/g, '');
       if (v !== t.value) t.value = v;
       if (v === '0') v = '';
     }
-    setField(t.closest('.day'), t.dataset.f, v);
+    setField(sec, t.dataset.f, v);
   }
   daysEl.addEventListener('input', onInput);
   daysEl.addEventListener('change', onInput);
+  daysEl.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.f) ev.target.blur();
+  });
 
   daysEl.addEventListener('click', function (ev) {
     var b = ev.target.closest('button');
