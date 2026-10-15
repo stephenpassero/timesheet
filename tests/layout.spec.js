@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { openApp, field, toggle } = require('./helpers');
+const { openApp, field, toggle, typeTime } = require('./helpers');
 
 test.beforeEach(({ page }) => openApp(page));
 
@@ -43,4 +43,16 @@ test('AM/PM toggle is at least 44x44', async ({ page }) => {
   const box = await toggle(page, 'in').boundingBox();
   expect(box.width).toBeGreaterThanOrEqual(44);
   expect(box.height).toBeGreaterThanOrEqual(44);
+});
+
+test('a full time like 12:30 fits beside AM/PM at 320px', async ({ page }) => {
+  // given
+  await page.setViewportSize({ width: 320, height: 800 });
+
+  // when
+  await typeTime(page, 'in', '1230');
+
+  // then
+  const { scrollWidth, clientWidth } = await field(page, 'in').evaluate(e => ({ scrollWidth: e.scrollWidth, clientWidth: e.clientWidth }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
 });

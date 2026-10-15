@@ -167,6 +167,13 @@ main { padding-top: 14px; padding-bottom: 8px; display: grid; gap: 10px; }
   font-size: 13px; font-weight: 700;
 }
 
+/* iPhone SE / mini widths: keep "12:30" from clipping beside the AM/PM button */
+@media (max-width: 360px) {
+  .day { padding: 12px; }
+  .fields { grid-template-columns: 1.4fr 1.4fr 0.7fr; gap: 6px; }
+  .tf .field { padding-left: 2px; font-size: 16px; }
+}
+
 .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .note { flex: 1 1 100%; margin: 0; font-size: 14px; color: var(--muted); }
 .note.warn { color: var(--warn); }
