@@ -105,15 +105,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
   color: var(--ink);
 }
 .arrow:active { background: var(--field); }
+.arrow:disabled { opacity: 0.25; }
 .arrow svg { width: 22px; height: 22px; }
 .mid { flex: 1; min-width: 0; text-align: center; }
-.range { font-size: 14px; color: var(--muted); display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 22px; }
+.range { white-space: nowrap; font-size: 14px; color: var(--muted); display: flex; justify-content: center; align-items: center; gap: 8px; min-height: 22px; }
 .today-btn {
   border: 0; border-radius: 999px;
   background: var(--accent); color: var(--accent-ink);
   font-size: 12px; font-weight: 700;
   padding: 2px 10px;
 }
+.today-btn:disabled { background: var(--field); color: var(--muted); }
 .val { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
 .sub { font-size: 14px; color: var(--muted); }
 
@@ -172,7 +174,13 @@ main { padding-top: 14px; padding-bottom: 8px; display: grid; gap: 10px; }
   .day { padding: 12px; }
   .fields { grid-template-columns: 1.4fr 1.4fr 0.7fr; gap: 6px; }
   .tf .field { padding-left: 2px; font-size: 16px; }
+  .field[type=number] { padding: 0 4px; }
+  .arrow { width: 40px; }
+  .range { font-size: 13px; gap: 6px; }
+  .today-btn { font-size: 11px; padding: 2px 8px; }
 }
+.field[type=number]::-webkit-inner-spin-button, .field[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.field[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
 .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .note { flex: 1 1 100%; margin: 0; font-size: 14px; color: var(--muted); }
@@ -206,7 +214,7 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
     </button>
     <div class="mid">
-      <div class="range"><span id="range"></span><button class="today-btn" id="todayBtn" aria-label="Go to this week" hidden></button></div>
+      <div class="range"><span id="range"></span><button class="today-btn" id="todayBtn" aria-label="Go to current week"></button></div>
       <div class="val" id="wkTotal">0h 00m</div>
       <div class="sub" id="wkDec">0.00 hours total</div>
     </div>
@@ -371,11 +379,11 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
       updateDay(sec);
     });
     document.getElementById('range').textContent = rangeLabel(start);
-    var weeks = Math.round((start - startOfWeek(new Date())) / 604800000);
+    var weeks = Math.min(0, Math.round((start - startOfWeek(new Date())) / 604800000));
     var todayBtn = document.getElementById('todayBtn');
-    todayBtn.hidden = weeks === 0;
-    todayBtn.textContent = weeks === 1 ? 'Next week' : weeks === -1 ? 'Last week' :
-                           weeks > 0 ? 'In ' + weeks + ' weeks' : -weeks + ' weeks ago';
+    todayBtn.disabled = weeks === 0;
+    todayBtn.textContent = weeks === 0 ? 'Current week' : weeks === -1 ? 'Last week' : -weeks + ' weeks ago';
+    document.getElementById('next').disabled = weeks === 0;
     updateTotals();
     topEl.style.setProperty('--hdr', topEl.offsetHeight + 'px');
     document.documentElement.style.setProperty('--hdr', topEl.offsetHeight + 'px');
@@ -484,7 +492,10 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
   });
 
   document.getElementById('prev').addEventListener('click', function () { anchor = addDays(anchor, -7); render(false); window.scrollTo(0, 0); });
-  document.getElementById('next').addEventListener('click', function () { anchor = addDays(anchor, 7); render(false); window.scrollTo(0, 0); });
+  document.getElementById('next').addEventListener('click', function () {
+    if (startOfWeek(anchor) >= startOfWeek(new Date())) return; // no future weeks
+    anchor = addDays(anchor, 7); render(false); window.scrollTo(0, 0);
+  });
   document.getElementById('todayBtn').addEventListener('click', function () { anchor = new Date(); render(false); window.scrollTo(0, 0); });
 
   var wsMon = document.getElementById('wsMon'), wsSun = document.getElementById('wsSun');

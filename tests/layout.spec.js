@@ -56,3 +56,37 @@ test('a full time like 12:30 fits beside AM/PM at 320px', async ({ page }) => {
   const { scrollWidth, clientWidth } = await field(page, 'in').evaluate(e => ({ scrollWidth: e.scrollWidth, clientWidth: e.clientWidth }));
   expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
 });
+
+test('the "min" placeholder in Break is not clipped at 320px', async ({ page }) => {
+  // given
+  await page.setViewportSize({ width: 320, height: 800 });
+
+  // when
+  const room = await field(page, 'brk').evaluate((e) => {
+    const cs = getComputedStyle(e);
+    const probe = document.createElement('span');
+    probe.style.cssText = `position:absolute;visibility:hidden;font:${cs.font}`;
+    probe.textContent = e.placeholder;
+    document.body.appendChild(probe);
+    const text = probe.getBoundingClientRect().width;
+    probe.remove();
+    return e.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - text;
+  });
+
+  // then
+  expect(room).toBeGreaterThanOrEqual(0);
+});
+
+test('the week header stays on one line at 320px, current or past', async ({ page }) => {
+  // given
+  await page.setViewportSize({ width: 320, height: 800 });
+  const height = () => page.locator('.mid .range').evaluate((e) => e.getBoundingClientRect().height);
+  const current = await height();
+
+  // when
+  await page.locator('#prev').tap();
+
+  // then
+  expect(await height()).toBe(current);
+  expect(current).toBeLessThan(30);
+});
