@@ -278,14 +278,17 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     return pad(h % 12 + (period === 'PM' ? 12 : 0)) + ':' + pad(min);
   }
 
-  // Inserts the colon as digits are typed: "9" -> "9:", "930" -> "9:30", "1230" -> "12:30"
-  function fmtTyping(raw, deleting) {
+  // Inserts the colon once two characters are typed: "93" -> "9:3", "930" -> "9:30", "1230" -> "12:30".
+  // "10"/"11"/"12" wait for a third digit, since "105" is 1:05 and "1050" is 10:50.
+  function fmtTyping(raw) {
     var d = raw.replace(/\D/g, '').slice(0, 4);
-    if (d.length === 1 && d < '2') return d;
-    var hl = d[0] === '0' || (d[0] === '1' && d[1] <= '2') ? 2 : 1;
+    if (d.length < 2) return d;
+    var twoDigitHour = d[0] === '0' || (d[0] === '1' && d[1] <= '2');
+    if (d.length === 2 && d[0] === '1' && twoDigitHour) return d;
+    var hl = d[0] === '0' || (d.length === 4 && twoDigitHour) ? 2 : 1;
     var m = d.slice(hl, hl + 2);
     if (m[0] > '5') m = '';
-    return deleting && !m ? d.slice(0, hl) : d.slice(0, hl) + ':' + m;
+    return d.slice(0, hl) + ':' + m;
   }
 
   function showTime(sec, f, hhmm) {
@@ -436,7 +439,7 @@ footer { padding-top: 18px; padding-bottom: 36px; display: grid; gap: 14px; }
     var sec = t.closest('.day');
     if (t.dataset.f !== 'brk') {
       if (ev.type === 'focusout') { commitTime(sec, t.dataset.f); return; }
-      t.value = fmtTyping(t.value, /^delete/.test(ev.inputType));
+      t.value = fmtTyping(t.value);
       // the iOS numeric keypad has no Done key, so save as soon as the time is complete
       var done = /^\d{1,2}:\d{2}$/.test(t.value) && parseTime(t.value, t.parentNode.querySelector('.ampm').textContent);
       if (done) setField(sec, t.dataset.f, done);
